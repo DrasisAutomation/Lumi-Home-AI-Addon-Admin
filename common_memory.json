@@ -1,0 +1,151 @@
+{
+  "product": {
+    "lumi_in_wall_relay": {
+      "description": "The Lumi in-wall relay is a compact smart module installed behind switches to control lights and appliances.",
+      "features": [
+        "Remote control via app or voice",
+        "Automation scenes (timers, schedules, triggers)",
+        "Manual + smart operation (works with existing switches)",
+        "Seamless integration with the Lumi Processor"
+      ],
+      "benefit": "Turns any regular switch into a smart, automated control point without changing your home’s look."
+    }
+  },
+  "boq": {
+    "2bhk_smart_home_automation_lumi": {
+      "items": [
+        {
+          "name": "core system lumi processor (pro)",
+          "quantity": 1
+        },
+        {
+          "name": "lumi in-wall relay (4 channel)",
+          "quantity": 2,
+          "location": "living room"
+        },
+        {
+          "name": "lumi in-wall relay (2 channel)",
+          "quantity": 1,
+          "location": "living room"
+        },
+        {
+          "name": "lumi in-wall relay (2 channel)",
+          "quantity": 2,
+          "location": "master bedroom"
+        },
+        {
+          "name": "lumi in-wall relay (2 channel)",
+          "quantity": 2,
+          "location": "bedroom 2"
+        },
+        {
+          "name": "lumi in-wall relay (2 channel)",
+          "quantity": 1,
+          "location": "kitchen"
+        },
+        {
+          "name": "lumi in-wall relay (1 channel)",
+          "quantity": 2,
+          "location": "bathrooms"
+        },
+        {
+          "name": "lumi ir blaster / ac controller",
+          "quantity": 3,
+          "location": "living + 2 bedrooms"
+        },
+        {
+          "name": "lumi curtain motor",
+          "quantity": 2,
+          "location": "living room + master bedroom"
+        },
+        {
+          "name": "lumi smart touch panel (4/6 inch)",
+          "quantity": 2,
+          "location": "living room + master bedroom"
+        },
+        {
+          "name": "lumi scene switch (4 button)",
+          "quantity": 3
+        },
+        {
+          "name": "lumi voice assistant integration",
+          "quantity": 1,
+          "location": "via lumi processor"
+        },
+        {
+          "name": "motion sensor",
+          "quantity": 3
+        },
+        {
+          "name": "door sensor",
+          "quantity": 3
+        },
+        {
+          "name": "temperature sensor",
+          "quantity": 2
+        },
+        {
+          "name": "smart plug",
+          "quantity": 2,
+          "location": "tv unit / kitchen appliances"
+        }
+      ]
+    },
+    "2bhk_smart_home": {
+      "items": []
+    }
+  },
+  "brand": {
+    "z_wave": {
+      "products": [
+        {
+          "id": "in_wall_relay_series",
+          "name": "In-Wall Relay Series",
+          "description": "Z-Wave in-wall relay modules are designed for hidden smart control of electrical devices, enabling wireless automation through Z-Wave controllers. These relays allow seamless integration with smart home systems, offering reliable mesh networking, secure communication, and efficient load control.",
+          "features": [
+            "Single device control (light, fan, socket, appliance)",
+            "Compact micro-module for concealed installation",
+            "Works with Z-Wave hubs (Home Assistant, SmartThings, etc.)",
+            "Supports manual switch + remote control",
+            "Timer, scheduling & automation scenes",
+            "Low power consumption with efficient switching",
+            "Optional energy monitoring (in supported models)"
+          ],
+          "specifications": {
+            "channels": 1,
+            "output_load_capacity": "up to 8A – 16A (model dependent)",
+            "voltage": "220–240V AC",
+            "frequency": "50/60 Hz",
+            "protocol": "Z-Wave / Z-Wave Plus",
+            "installation": "in-wall (behind switch)",
+            "control_type": "toggle / momentary switch support",
+            "additional": "power metering (select models), OTA updates"
+          }
+        },
+        {
+          "id": "2_channel_in_wall_relay",
+          "name": "2 Channel In-Wall Relay",
+          "features": [
+            "Dual independent device control",
+            "Ideal for controlling two lights/appliances from one module",
+            "Scene control & multi-device automation",
+            "Supports both wired switch and wireless control",
+            "Z-Wave mesh networking for extended range",
+            "Real-time status feedback to controller",
+            "Flexible configurations (interlock / independent modes in some models)"
+          ],
+          "specifications": {
+            "channels": 2,
+            "output_load_capacity": "up to 10A per channel (varies by model)",
+            "voltage": "220–240V AC",
+            "frequency": "50/60 Hz",
+            "protocol": "Z-Wave Plus (S2 security supported)",
+            "installation": "standard wall box compatible",
+            "control_type": "toggle / momentary switches",
+            "additional": "scene control, automation triggers"
+          }
+        }
+      ]
+    }
+  }
+}

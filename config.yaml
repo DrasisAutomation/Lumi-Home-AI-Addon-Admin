@@ -1,0 +1,27 @@
+name: "Lumi Home AI"
+description: "Premium smart home assistant powered by AI"
+version: "1.0.0"
+slug: "lumi_demo_ai_v1"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: application
+boot: auto
+panel_icon: mdi:robot-outline
+panel_title: "Lumi Home Ai"
+panel_admin: false
+ingress: true
+ingress_port: 2454
+ports:
+  2454/tcp: 2454
+homeassistant_api: true
+map:
+  - config:rw
+options:
+  openai_api_key: ""
+schema:
+  openai_api_key: "password?"
