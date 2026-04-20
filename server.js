@@ -454,12 +454,6 @@ async function parseNL(txt, entsStr, sid) {
     parsed = { chat: raw };
   }
   
-  if (!hist[sid]) hist[sid] = { messages: [] };
-  hist[sid].messages.push({ role: 'user', content: txt });
-  hist[sid].messages.push({ role: 'assistant', content: raw });
-  if (hist[sid].messages.length > 20) hist[sid].messages = hist[sid].messages.slice(-20);
-  writeJson(CHATHISTORY_FILE, hist);
-  
   return parsed;
 }
 

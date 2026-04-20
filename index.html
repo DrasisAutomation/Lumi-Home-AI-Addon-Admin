@@ -1192,12 +1192,18 @@
     }
 
     .session-item .s-title {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       flex: 1;
       display: flex;
       align-items: center;
+      min-width: 0;
+    }
+
+    .session-item .s-title-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      flex: 1;
     }
 
     .session-item .s-del {
@@ -1887,11 +1893,18 @@
     function addA(txt, isHtml) {
       const c = document.getElementById('msgs');
       const d = document.createElement('div'); d.className = 'mr';
-      const finalContent = isHtml ? txt : (window.marked ? marked.parse(txt) : esc(txt));
+      let cleanTxt = txt;
+      if (typeof cleanTxt === 'string' && cleanTxt.trim().startsWith('{')) {
+          try { 
+            let j = JSON.parse(cleanTxt); 
+            if (j.chat) cleanTxt = j.chat; 
+          } catch(e){}
+      }
+      const finalContent = isHtml ? cleanTxt : (window.marked ? marked.parse(cleanTxt) : esc(cleanTxt));
       d.innerHTML = `<div class="av"><i data-lucide="bot"></i></div><div class="bb a" ${isHtml ? 'style="width:100%;max-width:100%;background:transparent!important;padding:0;box-shadow:none"' : ''}>${finalContent}</div>`;
       c.appendChild(d); c.scrollTop = c.scrollHeight;
       lucide.createIcons({ nodes: d.querySelectorAll('[data-lucide]') });
-      if (typeof speakText === 'function' && !isHtml) speakText(txt);
+      if (typeof speakText === 'function' && !isHtml) speakText(cleanTxt);
     }
 
     async function send(fromBottom) {
@@ -2162,12 +2175,13 @@
         const sl = document.getElementById('session-list');
         if (!sl) return;
         sl.innerHTML = '';
-        const arr = Object.values(data).sort((a, b) => b.updatedAt - a.updatedAt);
+        const arr = Object.keys(data).map(k => ({ ...data[k], _key: k })).sort((a, b) => b.updatedAt - a.updatedAt);
         arr.forEach(s => {
           const div = document.createElement('div');
-          div.className = 'session-item' + (s.id === CURRENT_SESSION_ID ? ' active' : '');
-          div.onclick = () => switchSession(s.id, s.messages);
-          div.innerHTML = `<span class="s-title"><i data-lucide="message-square" style="width:14px;height:14px;margin-right:8px;vertical-align:-2px"></i>${esc(s.title || 'New Chat')}</span> <span class="s-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete Chat"><i data-lucide="trash-2" style="width:14px;height:14px"></i></span>`;
+          div.className = 'session-item' + (s._key === CURRENT_SESSION_ID ? ' active' : '');
+          div.onclick = () => switchSession(s._key, s.messages);
+          const displayTitle = s.title || (s.messages && s.messages[0] ? s.messages[0].content.substring(0, 30) : 'New Chat');
+          div.innerHTML = `<span class="s-title"><i data-lucide="message-square" style="width:14px;height:14px;margin-right:8px;vertical-align:-2px;flex-shrink:0;"></i><span class="s-title-text">${esc(displayTitle)}</span></span> <span class="s-del" onclick="event.stopPropagation();deleteSession('${s._key}')" title="Delete Chat"><i data-lucide="trash-2" style="width:14px;height:14px;flex-shrink:0;"></i></span>`;
           sl.appendChild(div);
         });
         if (window.lucide) window.lucide.createIcons();
@@ -2192,7 +2206,14 @@
           if (m.role === 'assistant') {
             const c = document.getElementById('msgs');
             const d = document.createElement('div'); d.className = 'mr';
-            const finalContent = m.isHtml ? m.content : (window.marked ? marked.parse(m.content) : esc(m.content));
+            let cleanTxt = m.content;
+            if (typeof cleanTxt === 'string' && cleanTxt.trim().startsWith('{')) {
+                try { 
+                  let j = JSON.parse(cleanTxt); 
+                  if (j.chat) cleanTxt = j.chat; 
+                } catch(e){}
+            }
+            const finalContent = m.isHtml ? cleanTxt : (window.marked ? marked.parse(cleanTxt) : esc(cleanTxt));
             d.innerHTML = `<div class="av"><i data-lucide="bot"></i></div><div class="bb a" ${m.isHtml ? 'style="width:100%;max-width:100%;background:transparent!important;padding:0;box-shadow:none"' : ''}>${finalContent}</div>`;
             c.appendChild(d); c.scrollTop = c.scrollHeight;
             lucide.createIcons({ nodes: d.querySelectorAll('[data-lucide]') });
