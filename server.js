@@ -406,9 +406,8 @@ function getEnergyContext() {
             return arr.map((x, i) => `${i+1}. ${deviceMap[x[0]]||x[0]} (${x[1].toFixed(2)} kWh)`).join(', ');
         }
         
-        return `\n\n-----------------------------------------
-💡 ENERGY MONITORING STATS (Use this to answer questions about power/energy usage)
------------------------------------------
+        return `\n\n
+ENERGY MONITORING STATS (Use this to answer questions about power/energy usage)
 Current Rate: ₹${rate}/kWh
 Today (${todayStr}): ${todayUnits.toFixed(2)} kWh (₹${(todayUnits*rate).toFixed(2)})
 Today's Top Devices: ${getTop3(deviceToday)}
@@ -538,6 +537,7 @@ async function parseNL(txt, entsStr, sid) {
       });
   }
   msgs.push({ role: 'user', content: txt });
+  msgs.push({ role: 'system', content: "(IMPORTANT SYSTEM REMINDER: You MUST return strictly valid JSON ONLY. Do not reply with plain text or markdown outside of the JSON block.)" });
 
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
