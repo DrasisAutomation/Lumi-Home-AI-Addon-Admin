@@ -10,8 +10,10 @@ const PORT = process.env.PORT || 2454;
 let addonOptions = {};
 try { addonOptions = JSON.parse(fs.readFileSync('/data/options.json', 'utf8')); } catch(e) {}
 
+const DATA_DIR = fs.existsSync('/data') ? '/data' : DIR;
+
 let localConfig = {};
-try { localConfig = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8')); } catch(e) {}
+try { localConfig = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'config.json'), 'utf8')); } catch(e) {}
 
 let sanitizedHaUrl = localConfig.ha_wss_url || addonOptions.ha_wss_url || "http://supervisor/core/api";
 if (sanitizedHaUrl) {
@@ -36,10 +38,10 @@ const FTP_CONFIG = {
   remotePath: '/config/www/community/images'
 };
 
-const HISTORY_FILE = path.join(DIR, 'history.json');
-const SCHEDULE_FILE = path.join(DIR, 'schedule.json');
-const MEMORY_FILE = path.join(DIR, 'memory.json');
-const CHATHISTORY_FILE = path.join(DIR, 'chathistory.json');
+const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+const SCHEDULE_FILE = path.join(DATA_DIR, 'schedule.json');
+const MEMORY_FILE = path.join(DATA_DIR, 'memory.json');
+const CHATHISTORY_FILE = path.join(DATA_DIR, 'chathistory.json');
 const COMMON_MEMORY_FILE = path.join(DIR, 'common_memory.json');
 const CATALOGUE_FILE = path.join(DIR, 'catalogue.json');
 
@@ -48,8 +50,6 @@ try { if (!fs.existsSync(HISTORY_FILE)) fs.writeFileSync(HISTORY_FILE, '[]'); } 
 try { if (!fs.existsSync(SCHEDULE_FILE)) fs.writeFileSync(SCHEDULE_FILE, '[]'); } catch (_) {}
 try { if (!fs.existsSync(MEMORY_FILE)) fs.writeFileSync(MEMORY_FILE, JSON.stringify({rooms: {}, ac: {}})); } catch (_) {}
 try { if (!fs.existsSync(CHATHISTORY_FILE)) fs.writeFileSync(CHATHISTORY_FILE, '{}'); } catch (_) {}
-try { if (!fs.existsSync(COMMON_MEMORY_FILE)) fs.writeFileSync(COMMON_MEMORY_FILE, '{}'); } catch (_) {}
-try { if (!fs.existsSync(CATALOGUE_FILE)) fs.writeFileSync(CATALOGUE_FILE, '{}'); } catch (_) {}
 
 // Ensure local audio directory exists
 const LOCAL_AUDIO_PATH = '/config/www/community/images';
@@ -167,10 +167,49 @@ function getIstTimeStr(d) {
   }).format(d || new Date());
 }
 
-function logAction(device, actionStr, rawCmd) {
+function getDeviceNameFromMemory(entities) {
+  const mem = readJson(MEMORY_FILE);
+  if (!mem.rooms) return Array.isArray(entities) ? entities.join(', ') : String(entities);
+  
+  const entityArray = Array.isArray(entities) ? entities : [String(entities)];
+  const resolvedNames = [];
+  
+  for (const ent of entityArray) {
+    let found = false;
+    for (const [room, data] of Object.entries(mem.rooms)) {
+      for (const [cat, items] of Object.entries(data)) {
+        if (cat === 'ac') {
+           for (const [acName, acData] of Object.entries(items)) {
+             if (Object.values(acData).includes(ent)) {
+               resolvedNames.push(`${acName} in ${room}`);
+               found = true;
+               break;
+             }
+           }
+        } else {
+           for (const [devName, devArr] of Object.entries(items)) {
+              if (Array.isArray(devArr)) {
+                 if (devArr.flat().includes(ent)) {
+                    resolvedNames.push(`${devName} in ${room}`);
+                    found = true;
+                    break;
+                 }
+              }
+           }
+        }
+        if (found) break;
+      }
+      if (found) break;
+    }
+    if (!found) resolvedNames.push(ent);
+  }
+  return [...new Set(resolvedNames)].join(', ');
+}
+
+function logAction(rawEntities, actionStr, rawCmd) {
   const h = readJson(HISTORY_FILE);
   const t = new Date();
-  const devName = Array.isArray(device) ? device.join(', ') : String(device);
+  const devName = getDeviceNameFromMemory(rawEntities);
   h.push({ device: devName.toLowerCase(), action: actionStr.toUpperCase(), timestamp: t.toISOString(), rawCmd });
   if (h.length > 2000) h.shift();
   writeJson(HISTORY_FILE, h);
@@ -674,7 +713,7 @@ async function executeCmds(cmds, reqEntities) {
       let actionStr = 'ON';
       if (actualService && (actualService.includes('off') || actualService.includes('close'))) actionStr = 'OFF';
       
-      logAction(name, actionStr, c);
+      logAction(c.data.entity_id, actionStr, c);
       results.push({ name, err: null });
     } catch (e) {
       console.error(`Failed to execute command for ${eid}:`, e.message);
@@ -750,7 +789,7 @@ const server = http.createServer(async (req, res) => {
   // --- GET CONFIG ENDPOINT ---
   if (req.method === 'GET' && req.url === '/api/get-config') {
       let localConfig = {};
-      try { localConfig = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8')); } catch(e) {}
+      try { localConfig = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'config.json'), 'utf8')); } catch(e) {}
       
       let resConfig = {
           ha_wss_url: localConfig.ha_wss_url || addonOptions.ha_wss_url || "",
@@ -911,9 +950,9 @@ const server = http.createServer(async (req, res) => {
       try {
         const payload = JSON.parse(body);
         let localConfig = {};
-        try { localConfig = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8')); } catch(e) {}
+        try { localConfig = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'config.json'), 'utf8')); } catch(e) {}
         const merged = { ...localConfig, ...payload };
-        fs.writeFileSync(path.join(DIR, 'config.json'), JSON.stringify(merged, null, 2));
+        fs.writeFileSync(path.join(DATA_DIR, 'config.json'), JSON.stringify(merged, null, 2));
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(500); res.end(e.message); }
     });
