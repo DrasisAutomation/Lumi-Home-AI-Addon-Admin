@@ -22,6 +22,18 @@ homeassistant_api: true
 map:
   - config:rw
 options:
-  openai_api_key: ""
+  ha_wss_url: "ws://supervisor/core/api/websocket"
+  long_live_token: ""
+  license_key: ""
+  ftp_ip: ""
+  ftp_port: 21
+  ftp_user: ""
+  ftp_password: ""
 schema:
-  openai_api_key: "password?"
+  ha_wss_url: "str?"
+  long_live_token: "password?"
+  license_key: "password?"
+  ftp_ip: "str?"
+  ftp_port: "port?"
+  ftp_user: "str?"
+  ftp_password: "password?"

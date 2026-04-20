@@ -7,20 +7,32 @@ const { exec } = require('child_process');
 const DIR = __dirname;
 const PORT = process.env.PORT || 2454;
 
-const HA_URL = process.env.SUPERVISOR_TOKEN ? "http://supervisor/core/api" : "https://demo.lumihomepro1.com/api";
-const HA_TOKEN = process.env.SUPERVISOR_TOKEN || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIzNGNlNThiNDk1Nzk0NDVmYjUxNzE2NDA0N2Q0MGNmZCIsImlhdCI6MTc2NTM0NzQ5MSwiZXhwIjoyMDgwNzA3NDkxfQ.Se5PGwx0U9aqyVRnD1uwvCv3F-aOE8H53CKA5TqsV7U";
-console.log("TOKEN:", HA_TOKEN ? "EXISTS" : "MISSING");
 let addonOptions = {};
 try { addonOptions = JSON.parse(fs.readFileSync('/data/options.json', 'utf8')); } catch(e) {}
+
+let localConfig = {};
+try { localConfig = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8')); } catch(e) {}
+
+let sanitizedHaUrl = localConfig.ha_wss_url || addonOptions.ha_wss_url || "http://supervisor/core/api";
+if (sanitizedHaUrl) {
+  sanitizedHaUrl = sanitizedHaUrl.replace(/^ws:\/\//i, 'http://').replace(/^wss:\/\//i, 'https://');
+  sanitizedHaUrl = sanitizedHaUrl.replace(/\/api\/websocket\/?$/i, '/api');
+  if (!sanitizedHaUrl.endsWith('/api')) sanitizedHaUrl = sanitizedHaUrl.replace(/\/$/, '') + '/api';
+}
+
+const HA_URL = sanitizedHaUrl;
+const HA_TOKEN = localConfig.long_live_token || addonOptions.long_live_token || process.env.SUPERVISOR_TOKEN;
+console.log("TOKEN:", HA_TOKEN ? "EXISTS" : "MISSING");
+
 const OAI_KEY = addonOptions.openai_api_key || process.env.OAI_KEY || "";
 const OAI_MODEL = "gpt-4o-mini";
 
 // FTP Configuration
 const FTP_CONFIG = {
-  host: '192.168.2.25',
-  port: 21,
-  user: 'lumiai',
-  password: 'Lumiai@Secure#2026',
+  host: localConfig.ftp_ip || addonOptions.ftp_ip || '',
+  port: localConfig.ftp_port || addonOptions.ftp_port ,
+  user: localConfig.ftp_user || addonOptions.ftp_user || '',
+  password: localConfig.ftp_password || addonOptions.ftp_password || '',
   remotePath: '/config/www/community/images'
 };
 
@@ -61,6 +73,80 @@ const MIME = {
 // State
 let PENDING_REPEAT = null;
 let SC_TIMERS = {};
+
+const os = require('os');
+const LICENSE_KEY = localConfig.license_key || addonOptions.license_key || process.env.LICENSE_KEY || "";
+const FB_URL = "https://lumi-ai-license-default-rtdb.firebaseio.com";
+const FB_KEY = "AIzaSyC9a8q2A2YCoxyJsOXUfrUR4mWFP7qvpkQ";
+
+function getMacAddress() {
+  const ifaces = os.networkInterfaces();
+  for (let name of Object.keys(ifaces)) {
+    for (let iface of ifaces[name]) {
+      if (!iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00') {
+        return iface.mac;
+      }
+    }
+  }
+  return "UNKNOWN_MAC_" + Math.random().toString(36).substr(2, 9);
+}
+const MAC_ID = getMacAddress();
+
+let IS_LICENSED = false;
+let LICENSE_MSG = "Checking license...";
+
+async function maintainLicenseLock() {
+  if (!LICENSE_KEY) {
+    LICENSE_MSG = "Please enter your provided License Key in the Addon Configuration!";
+    IS_LICENSED = false;
+    return;
+  }
+  
+  const url = `${FB_URL.replace(/\/$/, '')}/licenses/${LICENSE_KEY}.json?auth=${FB_KEY}`;
+  
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data && data.error) {
+       IS_LICENSED = false;
+       LICENSE_MSG = "Firebase API Key is Invalid or Permissions Denied.";
+       return;
+    }
+    
+    if (!data) {
+      IS_LICENSED = false;
+      LICENSE_MSG = "License key does not exist or has been revoked!";
+      return;
+    }
+    
+    const now = Date.now();
+    if (data.active_session) {
+      const isMe = data.active_session.mac === MAC_ID;
+      const isRecent = (now - data.active_session.last_seen) < 90000;
+      if (!isMe && isRecent) {
+        IS_LICENSED = false;
+        LICENSE_MSG = "License key is currently in use by another running addon instance!";
+        return;
+      }
+    }
+    
+    const patchUrl = `${FB_URL.replace(/\/$/, '')}/licenses/${LICENSE_KEY}/active_session.json?auth=${FB_KEY}`;
+    await fetch(patchUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mac: MAC_ID, last_seen: now })
+    });
+    
+    IS_LICENSED = true;
+    LICENSE_MSG = "License Active";
+  } catch(e) {
+    console.error("License check error:", e.message);
+  }
+}
+
+maintainLicenseLock();
+setInterval(maintainLicenseLock, 30000);
 
 // --- UTILS ---
 function readJson(fp) { 
@@ -642,6 +728,49 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
+  // Admin HTML UI
+  if (req.url === '/admin.html') {
+    const auth = req.headers['authorization'];
+    if (!auth || auth !== 'Basic ' + Buffer.from('admin:admin').toString('base64')) {
+      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Lumi Admin"' });
+      return res.end('HTTP Error 401 Unauthorized: Access is denied');
+    }
+    
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      try {
+          res.end(fs.readFileSync(path.join(DIR, 'admin.html')));
+      } catch(e) {
+          res.end("Admin UI not found.");
+      }
+      return;
+    }
+  }
+
+  // --- GET CONFIG ENDPOINT ---
+  if (req.method === 'GET' && req.url === '/api/get-config') {
+      let localConfig = {};
+      try { localConfig = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8')); } catch(e) {}
+      
+      let resConfig = {
+          ha_wss_url: localConfig.ha_wss_url || addonOptions.ha_wss_url || "",
+          long_live_token: localConfig.long_live_token || addonOptions.long_live_token || "",
+          license_key: localConfig.license_key || addonOptions.license_key || "",
+          ftp_ip: localConfig.ftp_ip || addonOptions.ftp_ip || "",
+          ftp_port: localConfig.ftp_port || addonOptions.ftp_port,
+          ftp_user: localConfig.ftp_user || addonOptions.ftp_user || "",
+          ftp_password: localConfig.ftp_password || addonOptions.ftp_password || ""
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(resConfig));
+  }
+
+  // --- GLOBAL LICENSE CHECK FOR APIS ---
+  if (req.url.startsWith('/api/') && req.url !== '/api/get-config' && !IS_LICENSED) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: "License Error: " + LICENSE_MSG }));
+  }
+
   // --- DIRECT AUDIO UPLOAD ENDPOINT (Accepts WAV from Recorder.js) ---
   if (req.method === 'POST' && req.url === '/api/upload-audio') {
     const chunks = [];
@@ -781,7 +910,10 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       try {
         const payload = JSON.parse(body);
-        fs.writeFileSync(path.join(DIR, 'config.json'), JSON.stringify(payload, null, 2));
+        let localConfig = {};
+        try { localConfig = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8')); } catch(e) {}
+        const merged = { ...localConfig, ...payload };
+        fs.writeFileSync(path.join(DIR, 'config.json'), JSON.stringify(merged, null, 2));
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(500); res.end(e.message); }
     });
